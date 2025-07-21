@@ -3,10 +3,6 @@
 
 expose OVOS wakeword plugins via wyoming for usage with the voice pee
 
-
-> ⚠️ **Private Repository:** This project is not yet publicly available. Please do not share this repository outside the early access group.
-
-
 ![image](https://github.com/user-attachments/assets/3f495ea2-4322-4312-9ca1-c67e5b8bea54)
 
 ## Usage
