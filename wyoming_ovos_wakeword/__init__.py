@@ -1,0 +1,1 @@
+from wyoming_ovos_wakeword.version import __version__

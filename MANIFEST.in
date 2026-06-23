@@ -1,1 +1,1 @@
-include requirements.txt
+include wyoming_ovos_wakeword/version.py

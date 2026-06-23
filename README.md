@@ -1,92 +1,175 @@
+# Wyoming OVOS Wake Word Bridge
 
-# Wyoming OVOS WakeWord Bridge
+[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](pyproject.toml)
+[![Wyoming](https://img.shields.io/badge/wyoming-1.9+-blueviolet.svg)](https://github.com/OHF-voice/wyoming)
+[![OVOS](https://img.shields.io/badge/OVOS-plugin--manager-ff69b4.svg)](https://github.com/OpenVoiceOS/ovos-plugin-manager)
 
-expose OVOS wakeword plugins via wyoming for usage with the voice pee
+Expose [OpenVoiceOS](https://openvoiceos.org) wake word (hotword) plugins as a [Wyoming protocol](https://github.com/OHF-voice/wyoming) wake service for use with Home Assistant, Rhasspy, and other Wyoming-compatible voice pipelines.
 
-![image](https://github.com/user-attachments/assets/3f495ea2-4322-4312-9ca1-c67e5b8bea54)
+```
+                         ┌──────────────────────────────────────┐
+  Wyoming client         │      wyoming-ovos-wakeword            │
+  (Home Assistant,       │                                      │
+   Rhasspy, etc.)        │  ┌────────────────────────────────┐  │
+                         │  │ OVOSWakeWordEventHandler       │  │
+  Detect(names) ────────►│  │                                │  │
+  AudioStart ───────────►│  │ load_wakewords(names) ─────────►│  OVOSWakeWordFactory
+  AudioChunk* ──────────►│  │ HotWordEngine.update(chunk)    │  └──> Hotword plugins
+                         │  │ HotWordEngine.found_wake_word()│  │
+  Detection ◄────────────│  │                                │  │
+  AudioStop ────────────►│  │ (if no detection)              │  │
+  NotDetected ◄──────────│  │                                │  │
+                         │  └────────────────────────────────┘  │
+  Describe ─────────────►│  Info(wake=[WakeProgram(...)])       │
+  Info ◄─────────────────│                                      │
+                         └──────────────────────────────────────┘
+```
+
+## Features
+
+- **Multiple simultaneous wake words** — Clients select which models to activate via the `Detect` event
+- **Lazy model loading** — Hotword engines are loaded on demand and cached per connection
+- **All configured hotwords advertised** — Every entry under `hotwords` in `mycroft.conf` is exposed in the Wyoming `Info` response
+- **Zeroconf / mDNS discovery** — Optional service announcement on the local network
+- **Error reporting** — Failures are sent back as Wyoming `Error` events
+- **Signal handling** — Graceful shutdown on SIGINT/SIGTERM
+
+## Installation
+
+### From PyPI
+
+```bash
+pip install wyoming-ovos-wakeword
+```
+
+You also need to install the OVOS wake word engine(s) you intend to use, e.g.:
+
+```bash
+pip install ovos-ww-plugin-precise-lite
+pip install ovos-ww-plugin-vosk
+```
+
+### From source
+
+```bash
+git clone https://github.com/OpenVoiceOS/wyoming-ovos-wakeword.git
+cd wyoming-ovos-wakeword
+pip install -e .
+```
+
+## Configuration
+
+Wake word definitions are read from `mycroft.conf` under `hotwords`. The default active wake word (when no `Detect` event is received) is taken from `listener.wake_word`.
+
+```json
+{
+  "listener": {
+    "wake_word": "hey_mycroft"
+  },
+  "hotwords": {
+    "hey_mycroft": {
+      "module": "ovos-ww-plugin-precise-lite",
+      "model": "https://github.com/OpenVoiceOS/precise-lite-models/raw/master/wakewords/en/hey_mycroft.tflite",
+      "expected_duration": 3,
+      "trigger_level": 3,
+      "sensitivity": 0.5,
+      "listen": true
+    },
+    "hey_mycroft_vosk": {
+      "module": "ovos-ww-plugin-vosk",
+      "samples": ["hey mycroft"],
+      "rule": "fuzzy",
+      "listen": true
+    },
+    "wake_up": {
+      "module": "ovos-ww-plugin-vosk",
+      "rule": "fuzzy",
+      "samples": ["wake up"],
+      "lang": "en-us",
+      "wakeup": true
+    }
+  }
+}
+```
+
+All configured hotwords are advertised via `Describe`/`Info` and are selectable by name.
 
 ## Usage
 
 ```bash
-$ wyoming-ovos-ww --help
-usage: wyoming-ovos-wakeword [-h] [--uri URI] [--zeroconf [ZEROCONF]] [--debug] [--log-format LOG_FORMAT]
+# Standard TCP server with zeroconf
+wyoming-ovos-wakeword --uri tcp://0.0.0.0:7893 --zeroconf
 
-options:
-  -h, --help            show this help message and exit
-  --uri URI             unix:// or tcp://
-  --zeroconf [ZEROCONF]
-                        Enable discovery over zeroconf with optional name (default: ovos-ww-plugin)
-  --debug               Log DEBUG messages
-  --log-format LOG_FORMAT
-                        Format for log messages
+# With custom zeroconf service name
+wyoming-ovos-wakeword --uri tcp://0.0.0.0:7893 --zeroconf my-ovos-ww
 
+# Unix socket
+wyoming-ovos-wakeword --uri unix:///run/wyoming-ww.sock
+
+# Over stdio
+wyoming-ovos-wakeword
 ```
 
-> wyoming-ovos-wakeword --uri tcp://0.0.0.0:7892 --zeroconf
+## CLI Reference
 
-wake words configs are read from `mycroft.conf`, anything under "hotwords" will be available via wyoming and loaded on demand
+| Argument | Required | Default | Description |
+|---|---|---|---|
+| `--uri` | No | `stdio://` | `tcp://HOST:PORT`, `unix:///path`, or `stdio://` |
+| `--zeroconf` | No | disabled | Enable mDNS/Zeroconf discovery (optional: service name, default: `ovos-ww-plugin`) |
+| `--debug` | No | `False` | Enable DEBUG-level logging |
+| `--log-format` | No | `%(levelname)s:%(name)s:%(message)s` | Python log format string |
+| `--version` | No | — | Print version and exit |
 
-the default `mycroft.conf` is
+> Zeroconf requires a `tcp://` URI.
 
-```json
-"hotwords": {
-    "hey_mycroft": {
-        "module": "ovos-ww-plugin-precise-lite",
-        "model": "https://github.com/OpenVoiceOS/precise-lite-models/raw/master/wakewords/en/hey_mycroft.tflite",
-        "expected_duration": 3,
-        "trigger_level": 3,
-        "sensitivity": 0.5,
-        "listen": true,
-        "fallback_ww": "hey_mycroft_precise"
-    },
-    "hey_mycroft_precise": {
-        "module": "ovos-ww-plugin-precise",
-        "version": "0.3",
-        "model": "https://github.com/MycroftAI/precise-data/raw/models-dev/hey-mycroft.tar.gz",
-        "expected_duration": 3,
-        "trigger_level": 3,
-        "sensitivity": 0.5,
-        "listen": true,
-        "fallback_ww": "hey_mycroft_vosk"
-    },
-    "hey_mycroft_vosk": {
-        "module": "ovos-ww-plugin-vosk",
-        "samples": ["hey mycroft", "hey microsoft", "hey mike roft", "hey minecraft"],
-        "rule": "fuzzy",
-        "listen": true,
-        "fallback_ww": "hey_mycroft_pocketsphinx"
-    },
-    "hey_mycroft_pocketsphinx": {
-        "module": "ovos-ww-plugin-pocketsphinx",
-        "phonemes": "HH EY . M AY K R AO F T",
-        "threshold": 1e-90,
-        "lang": "en-us",
-        "listen": true
-    },
-    "wake_up": {
-        "module": "ovos-ww-plugin-vosk",
-        "rule": "fuzzy",
-        "samples": ["wake up"],
-        "lang": "en-us",
-        "wakeup": true,
-        "fallback_ww": "wake_up_pocketsphinx"
-    },
-    "wake_up_pocketsphinx": {
-        "module": "ovos-ww-plugin-pocketsphinx",
-        "phonemes": "W EY K . AH P",
-        "threshold": 1e-20,
-        "lang": "en-us",
-        "wakeup": true
-    }
-  },
+## Wyoming Protocol
+
+### Wake word detection flow
+
+```
+Client → Describe
+Server → Info(wake=[WakeProgram(models=[WakeModel(name="hey_mycroft", ...), ...])])
+
+Client → Detect(names=["hey_mycroft", "wake_up"])
+Client → AudioStart(rate=16000, width=2, channels=1)
+       → AudioChunk (raw PCM bytes)
+       → AudioChunk ...
+       → Detection(name="hey_mycroft", timestamp=...)   ← on match
+       → AudioChunk ...
+       → AudioStop
+Server → NotDetected                                  ← if no match
 ```
 
----
+The connection stays open for continuous detection. Multiple detections can occur within a single audio stream. Audio is converted to 16 kHz / 16-bit / mono PCM automatically.
+
+## Supported Plugin Types
+
+Any OVOS wake word plugin implementing `HotWordEngine` from `ovos_plugin_manager.templates.hotwords`:
+
+- `ovos-ww-plugin-precise-lite` — Mycroft Precise (TFLite)
+- `ovos-ww-plugin-precise` — Mycroft Precise (full)
+- `ovos-ww-plugin-vosk` — Vosk-based wake word
+- `ovos-ww-plugin-pocketsphinx` — CMU PocketSphinx
+- `ovos-ww-plugin-snowboy` — Snowboy (deprecated)
+- `ovos-ww-plugin-openspeech` — OpenSpeech
+- `ovos-ww-plugin-porcupine` — Porcupine
+
+## Zeroconf / mDNS Discovery
+
+When `--zeroconf` is passed, the bridge announces itself on the local network. Home Assistant and other Wyoming clients can discover the service automatically without manual IP configuration. The service is registered as `_wyoming._tcp.local.`.
+
+## Documentation
+
+Detailed docs live in [`docs/`](docs/index.md):
+
+- [Configuration](docs/configuration.md)
+- [Home Assistant](docs/home_assistant.md)
+- [Wyoming protocol](docs/protocol.md)
 
 ## Credits
 
-Developed by [TigreGótico](https://tigregotico.pt) for
-[OpenVoiceOS](https://openvoiceos.org).
+Developed by [TigreGótico](https://tigregotico.pt) for [OpenVoiceOS](https://openvoiceos.org).
 
 [![NGI0 Commons Fund](./ngi.png)](https://nlnet.nl/project/OpenVoiceOS)
 
