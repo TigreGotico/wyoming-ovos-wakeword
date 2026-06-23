@@ -159,6 +159,14 @@ Any OVOS wake word plugin implementing `HotWordEngine` from `ovos_plugin_manager
 
 When `--zeroconf` is passed, the bridge announces itself on the local network. Home Assistant and other Wyoming clients can discover the service automatically without manual IP configuration. The service is registered as `_wyoming._tcp.local.`.
 
+## Documentation
+
+Detailed docs live in [`docs/`](docs/index.md):
+
+- [Configuration](docs/configuration.md)
+- [Home Assistant](docs/home_assistant.md)
+- [Wyoming protocol](docs/protocol.md)
+
 ## Credits
 
 Developed by [TigreGótico](https://tigregotico.pt) for [OpenVoiceOS](https://openvoiceos.org).
