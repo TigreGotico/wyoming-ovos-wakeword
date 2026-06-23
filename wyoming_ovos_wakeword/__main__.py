@@ -61,22 +61,12 @@ async def main() -> None:
         if not isinstance(server, AsyncTcpServer):
             raise ValueError("Zeroconf requires tcp:// uri")
         tcp_server: AsyncTcpServer = server
-        try:
-            from wyoming.zeroconf import HomeAssistantZeroconf
-            hass_zc = HomeAssistantZeroconf(
-                name=args.zeroconf,
-                port=tcp_server.port,
-                host=tcp_server.host,
-            )
-            await hass_zc.register_server()
-        except ImportError:
-            # Fallback for wyoming < 1.9
-            from wyoming.zeroconf import register_server  # type: ignore[attr-defined,import-not-found]
-            await register_server(
-                name=args.zeroconf,
-                port=tcp_server.port,
-                host=tcp_server.host,
-            )
+        from wyoming.zeroconf import HomeAssistantZeroconf
+        await HomeAssistantZeroconf(
+            name=args.zeroconf,
+            port=tcp_server.port,
+            host=tcp_server.host,
+        ).register_server()
         _LOGGER.debug("Zeroconf discovery enabled")
 
     loop = asyncio.get_running_loop()
