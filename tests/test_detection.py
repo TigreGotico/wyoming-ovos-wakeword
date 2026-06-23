@@ -159,3 +159,83 @@ async def test_audio_start_resets_and_loads():
         assert handler._detection is False
         mock_load.assert_called_once()
         mock_engine.reset.assert_called_once()
+
+
+def _chunk():
+    # 160 samples @ 16 kHz / 16-bit / mono == 10 ms of audio
+    return AudioChunk(rate=16000, width=2, channels=1, audio=b"\x00\x00" * 160)
+
+
+@pytest.mark.asyncio
+async def test_detection_timestamp_accumulates_audio_ms():
+    """Detection.timestamp is elapsed audio in ms, not the chunk's own stamp."""
+    handler = _handler()
+    engine = MagicMock()
+    engine.found_wake_word.side_effect = [False, False, True]
+    handler.models = {"hey_mycroft": engine}
+    handler.active_detectors = ["hey_mycroft"]
+    handler._audio_timestamp = 0
+    handler._fired = set()
+
+    captured = []
+
+    async def capture(event):
+        captured.append(event)
+
+    handler.write_event = capture
+
+    for _ in range(3):
+        await handler.handle_event(_chunk().event())
+
+    detections = [e for e in captured if e.type == "detection"]
+    assert len(detections) == 1
+    assert Detection.from_event(detections[0]).timestamp == 30  # 3 x 10 ms
+
+
+@pytest.mark.asyncio
+async def test_duplicate_detection_suppressed_within_stream():
+    """A wake word that keeps matching is reported once per stream."""
+    handler = _handler()
+    engine = MagicMock()
+    engine.found_wake_word.return_value = True
+    handler.models = {"hey_mycroft": engine}
+    handler.active_detectors = ["hey_mycroft"]
+    handler._audio_timestamp = 0
+    handler._fired = set()
+
+    captured = []
+
+    async def capture(event):
+        captured.append(event)
+
+    handler.write_event = capture
+
+    for _ in range(3):
+        await handler.handle_event(_chunk().event())
+
+    detections = [e for e in captured if e.type == "detection"]
+    assert len(detections) == 1
+    # Once fired, the detector is skipped (not fed) for the rest of the stream.
+    assert engine.update.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_audio_start_resets_timestamp_and_fired():
+    """AudioStart zeroes the audio clock and clears the fired set."""
+    handler = _handler()
+    engine = MagicMock()
+    handler.models = {"hey_mycroft": engine}
+    handler.active_detectors = ["hey_mycroft"]
+    handler._audio_timestamp = 999
+    handler._fired = {"hey_mycroft"}
+    handler._detection = True
+
+    with patch.object(handler, "load_wakewords"):
+        await handler.handle_event(
+            AudioStart(rate=16000, width=2, channels=1).event()
+        )
+
+    assert handler._audio_timestamp == 0
+    assert handler._fired == set()
+    assert handler._detection is False
+    engine.reset.assert_called_once()

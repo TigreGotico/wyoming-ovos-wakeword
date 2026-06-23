@@ -107,6 +107,13 @@ class OVOSWakeWordEventHandler(AsyncEventHandler):
         self.models: Dict[str, HotWordEngine] = {}
         self.active_detectors = [self.default_ww]
         self._detection: bool = False
+        # Elapsed audio in milliseconds since the last AudioStart, used as the
+        # Detection timestamp (matches wyoming-openwakeword; robust when the
+        # client does not stamp AudioChunk.timestamp).
+        self._audio_timestamp: int = 0
+        # Wake words already reported in the current stream, to avoid emitting
+        # a flood of Detection events while the phrase keeps matching.
+        self._fired: set = set()
 
         _LOGGER.debug("Client connected: %s", self.client_id)
 
@@ -140,6 +147,8 @@ class OVOSWakeWordEventHandler(AsyncEventHandler):
 
             if AudioStart.is_type(event.type):
                 self._detection = False
+                self._audio_timestamp = 0
+                self._fired.clear()
                 self.active_detectors = self.active_detectors or [self.default_ww]
                 await self.load_wakewords(self.active_detectors)
                 for name in self.active_detectors:
@@ -147,7 +156,10 @@ class OVOSWakeWordEventHandler(AsyncEventHandler):
 
             elif AudioChunk.is_type(event.type):
                 chunk = self.converter.convert(AudioChunk.from_event(event))
+                self._audio_timestamp += chunk.milliseconds
                 for wake_word in self.active_detectors:
+                    if wake_word in self._fired:
+                        continue
                     detector = self.models[wake_word]
                     detector.update(chunk.audio)
                     if detector.found_wake_word(None):
@@ -159,10 +171,11 @@ class OVOSWakeWordEventHandler(AsyncEventHandler):
                         await self.write_event(
                             Detection(
                                 name=wake_word,
-                                timestamp=chunk.timestamp,
+                                timestamp=self._audio_timestamp,
                             ).event()
                         )
                         self._detection = True
+                        self._fired.add(wake_word)
 
             elif AudioStop.is_type(event.type):
                 if not self._detection:
