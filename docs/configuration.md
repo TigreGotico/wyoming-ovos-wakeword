@@ -1,7 +1,7 @@
 # Configuration
 
-The bridge itself is configured with CLI flags; the **wake words** are configured
-through `mycroft.conf` (the standard OVOS config stack), read at startup.
+CLI flags configure the bridge itself. The **wake words** come from
+`mycroft.conf` (the standard OVOS config stack), read at startup.
 
 ## CLI
 
@@ -13,14 +13,14 @@ through `mycroft.conf` (the standard OVOS config stack), read at startup.
 | `--log-format` | No | `%(levelname)s:%(name)s:%(message)s` | Python log format |
 | `--version` | No | — | print version and exit |
 
-`--zeroconf` requires a `tcp://` URI; the service registers as
+`--zeroconf` requires a `tcp://` URI. The service registers as
 `_wyoming._tcp.local.`.
 
 ## Wake words
 
 Wake words are read from `mycroft.conf` under `hotwords`. Every entry is
-advertised in the `Info` response and is selectable by name; the engine for a wake
-word is created the first time it is activated.
+advertised in the `Info` response and is selectable by name. The engine for a
+wake word is created the first time it is activated.
 
 ```json
 {
@@ -57,4 +57,7 @@ names replaces the active set with exactly those.
 Any plugin implementing `HotWordEngine` from
 `ovos_plugin_manager.templates.hotwords`, e.g. `ovos-ww-plugin-precise-lite`,
 `ovos-ww-plugin-vosk`, `ovos-ww-plugin-precise`, `ovos-ww-plugin-pocketsphinx`.
-Install the engine alongside the bridge — it is not pulled in automatically.
+Install the engine alongside the bridge. It does not install automatically.
+
+---
+[Home](index.md) · [Home Assistant →](home_assistant.md)
