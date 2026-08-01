@@ -28,12 +28,12 @@ Expose [OpenVoiceOS](https://openvoiceos.org) wake word (hotword) plugins as a [
 
 ## Features
 
-- **Multiple simultaneous wake words** — Clients select which models to activate via the `Detect` event
-- **Lazy model loading** — Hotword engines are loaded on demand and cached per connection
-- **All configured hotwords advertised** — Every entry under `hotwords` in `mycroft.conf` is exposed in the Wyoming `Info` response
-- **Zeroconf / mDNS discovery** — Optional service announcement on the local network
-- **Error reporting** — Failures are sent back as Wyoming `Error` events
-- **Signal handling** — Graceful shutdown on SIGINT/SIGTERM
+- **Multiple simultaneous wake words**: clients select which models to activate through the `Detect` event
+- **Lazy model loading**: hotword engines load on demand and stay cached per connection
+- **All configured hotwords advertised**: every entry under `hotwords` in `mycroft.conf` appears in the Wyoming `Info` response
+- **Zeroconf / mDNS discovery**: optional service announcement on the local network
+- **Error reporting**: failures come back as Wyoming `Error` events
+- **Signal handling**: graceful shutdown on SIGINT/SIGTERM
 
 ## Installation
 
@@ -147,13 +147,13 @@ The connection stays open for continuous detection. Multiple detections can occu
 
 Any OVOS wake word plugin implementing `HotWordEngine` from `ovos_plugin_manager.templates.hotwords`:
 
-- `ovos-ww-plugin-precise-lite` — Mycroft Precise (TFLite)
-- `ovos-ww-plugin-precise` — Mycroft Precise (full)
-- `ovos-ww-plugin-vosk` — Vosk-based wake word
-- `ovos-ww-plugin-pocketsphinx` — CMU PocketSphinx
-- `ovos-ww-plugin-snowboy` — Snowboy (deprecated)
-- `ovos-ww-plugin-openspeech` — OpenSpeech
-- `ovos-ww-plugin-porcupine` — Porcupine
+- `ovos-ww-plugin-precise-lite`: Mycroft Precise (TFLite)
+- `ovos-ww-plugin-precise`: Mycroft Precise (full)
+- `ovos-ww-plugin-vosk`: Vosk-based wake word
+- `ovos-ww-plugin-pocketsphinx`: CMU PocketSphinx
+- `ovos-ww-plugin-snowboy`: Snowboy (deprecated)
+- `ovos-ww-plugin-openspeech`: OpenSpeech
+- `ovos-ww-plugin-porcupine`: Porcupine
 
 ## Zeroconf / mDNS Discovery
 
